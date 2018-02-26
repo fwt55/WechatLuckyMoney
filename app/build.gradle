@@ -4,21 +4,21 @@ android {
 
     signingConfigs {
         debug {
-            storeFile file("keystore/debug.keystore")
-            storePassword "password"
-            keyAlias "veryyoung"
-            keyPassword "password"
+//            storeFile file("keystore/debug.keystore")
+//            storePassword "password"
+//            keyAlias "veryyoung"
+//            keyPassword "password"
         }
         release {
-            storeFile file("keystore/release.keystore")
-            storePassword "password"
-            keyAlias "veryyoung"
-            keyPassword "password"
+//            storeFile file("keystore/release.keystore")
+//            storePassword "password"
+//            keyAlias "veryyoung"
+//            keyPassword "password"
         }
     }
 
     compileSdkVersion 23
-    buildToolsVersion "23.0.2"
+    buildToolsVersion '25.0.0'
     defaultConfig {
         applicationId "me.veryyoung.wechat.luckymoney"
         minSdkVersion 15
