@@ -1,13 +1,16 @@
 package me.veryyoung.wechat.luckymoney;
 
 import android.app.Activity;
+import android.app.Application;
 import android.content.ClipboardManager;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -21,6 +24,7 @@ import java.util.List;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 import me.veryyoung.wechat.luckymoney.util.XmlToJson;
 
@@ -49,6 +53,7 @@ public class Main implements IXposedHookLoadPackage {
     private static String wechatVersion = "";
     private static List<LuckyMoneyMessage> luckyMoneyMessages = new ArrayList<>();
 
+    private Context mContext;
 
     @Override
     public void handleLoadPackage(final LoadPackageParam lpparam) throws Throwable {
@@ -61,6 +66,32 @@ public class Main implements IXposedHookLoadPackage {
                 new DonateHook().hook(lpparam);
                 VersionParam.init(versionName);
             }
+
+
+            final Class<?> clazz = findClass("android.app.Instrumentation", null);
+            findAndHookMethod(clazz, "callApplicationOnCreate", Application.class
+                    , new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            super.beforeHookedMethod(param);
+                        }
+
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            super.afterHookedMethod(param);
+                            Context context = null;
+                            if (param.args[0] instanceof Application) {
+                                context = ((Application) param.args[0]).getApplicationContext();
+                            } else {
+                                return;
+                            }
+                            Toast.makeText(context, context.getPackageName(), Toast.LENGTH_SHORT).show();
+
+                            mContext = context;
+                        }
+                    });
+
+
             findAndHookMethod("com.tencent.wcdb.database.SQLiteDatabase", lpparam.classLoader, "insert", String.class, String.class, ContentValues.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -73,14 +104,19 @@ public class Main implements IXposedHookLoadPackage {
                     if (null == type) {
                         return;
                     }
+
+                    Log.e("fwt55 msgType is :", type + "");
+
                     if (type == 436207665 || type == 469762097) {
                         handleLuckyMoney(contentValues, lpparam);
                     } else if (type == 419430449) {
                         handleTransfer(contentValues, lpparam);
+                    } else if (type == 318767153) {
+//                        handleCodePayment(contentValues, lpparam);
                     }
+                    handleAnyMsg(contentValues, lpparam, type);
                 }
             });
-
 
             findAndHookMethod(receiveLuckyMoneyRequest, lpparam.classLoader, "a", int.class, String.class, JSONObject.class, new XC_MethodHook() {
                         protected void beforeHookedMethod(MethodHookParam param) throws JSONException {
@@ -144,6 +180,36 @@ public class Main implements IXposedHookLoadPackage {
             });
 
             new HideModule().hide(lpparam);
+        }
+
+    }
+
+    private void handleAnyMsg(ContentValues contentValues, LoadPackageParam lpparam, int msgType) {
+        String content = contentValues.getAsString("content");
+        Log.e("fwt55 content is:", content + "");
+
+        if (mContext != null) {
+            Intent intent = new Intent();
+            intent.setAction("me.veryyoung.wechat.luckymoney.wechat_msg_received");
+            intent.putExtra("content", content);
+            intent.putExtra("msgType", msgType);
+
+            mContext.sendBroadcast(intent);
+        }
+    }
+
+    private void handleCodePayment(ContentValues contentValues, LoadPackageParam lpparam) {
+        String content = contentValues.getAsString("content");
+        Log.e("fwt55 content is:", content + "");
+
+        if (mContext != null) {
+            Toast.makeText(mContext, content, Toast.LENGTH_LONG).show();
+
+            Intent intent = new Intent();
+            intent.setAction("me.veryyoung.wechat.luckymoney.wechat_msg_received");
+            intent.putExtra("content", content);
+
+            mContext.sendBroadcast(intent);
         }
 
     }
